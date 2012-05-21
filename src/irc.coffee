@@ -3,6 +3,23 @@ Adapter = require('hubot').adapter()
 
 Irc     = require 'irc'
 
+send_to_robot = (self, from, to, message) ->
+  user = self.userForName from
+  unless user?
+    id = (new Date().getTime() / 1000).toString().replace('.','')
+    user = self.userForId id
+    user.name = from
+
+  if to.match(/^[&#]/)
+    user.room = to
+    console.log "#{to} <#{from}> #{message}"
+  else
+    user.room = null
+    console.log "msg <#{from}> #{message}"
+
+  self.receive new Robot.TextMessage(user, message)
+
+
 class IrcBot extends Adapter
   constructor: (@robot) ->
     super @robot
@@ -92,21 +109,7 @@ class IrcBot extends Adapter
 
     bot.addListener 'message', (from, to, message) ->
       console.log "From #{from} to #{to}: #{message}"
-      
-      user = self.userForName from
-      unless user?
-        id = (new Date().getTime() / 1000).toString().replace('.','')
-        user = self.userForId id
-        user.name = from
-
-      if to.match(/^[&#]/)
-        user.room = to
-        console.log "#{to} <#{from}> #{message}"
-      else
-        user.room = null
-        console.log "msg <#{from}> #{message}"
-
-      self.receive new Robot.TextMessage(user, message)
+      send_to_robot self, from, to, message
 
     bot.addListener 'error', (message) ->
         console.error('ERROR: %s: %s', message.command, message.args.join(' '))
@@ -115,7 +118,8 @@ class IrcBot extends Adapter
         console.log('Got private message from %s: %s', nick, message)
 
     bot.addListener 'join', (channel, who) ->
-        console.log('%s has joined %s', who, channel)
+      console.log('%s has joined %s', who, channel)
+      send_to_robot self, who, channel, "#{who} has joined - #{channel}"
 
     bot.addListener 'part', (channel, who, reason) ->
         console.log('%s has left %s: %s', who, channel, reason)
@@ -137,4 +141,3 @@ class IrcResponse extends Robot.Response
 
 exports.use = (robot) ->
   new IrcBot robot
-
